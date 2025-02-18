@@ -3,6 +3,7 @@ package com.Tc_traveler.IDSOD.controller;
 
 import com.Tc_traveler.IDSOD.dto.Result;
 import com.Tc_traveler.IDSOD.entity.User;
+import com.Tc_traveler.IDSOD.service.SFTPService;
 import com.Tc_traveler.IDSOD.service.UserService;
 import com.Tc_traveler.IDSOD.utils.JwtUtil;
 import com.Tc_traveler.IDSOD.utils.Md5Util;
@@ -24,6 +25,9 @@ public class UserController {
     // 注入UserService
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private SFTPService sftpService;
 
     // 注册接口
     @PostMapping("/register")
@@ -59,5 +63,16 @@ public class UserController {
         }else {
             return Result.error("密码错误");
         }
+    }
+
+    @RequestMapping("/test")
+    public Result test(){
+        try {
+            sftpService.uploadFile("D:\\123456.txt");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("上传失败");
+        }
+        return Result.success();
     }
 }
