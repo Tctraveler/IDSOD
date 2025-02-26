@@ -7,6 +7,8 @@ import com.Tc_traveler.IDSOD.service.SFTPService;
 import com.Tc_traveler.IDSOD.service.UserService;
 import com.Tc_traveler.IDSOD.utils.JwtUtil;
 import com.Tc_traveler.IDSOD.utils.Md5Util;
+import com.jcraft.jsch.JSchException;
+import com.jcraft.jsch.SftpException;
 import jakarta.validation.constraints.Pattern;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -72,6 +75,17 @@ public class UserController {
         } catch (Exception e) {
             e.printStackTrace();
             return Result.error("上传失败");
+        }
+        return Result.success();
+    }
+
+    @RequestMapping("/test2")
+    public Result test2(){
+        try {
+            sftpService.executeCommand("python /root/autodl-tmp/res101_MultiScaleFusion/predict.py --left /root/autodl-tmp/0_left.jpg --right /root/autodl-tmp/0_right.jpg");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("预测失败");
         }
         return Result.success();
     }

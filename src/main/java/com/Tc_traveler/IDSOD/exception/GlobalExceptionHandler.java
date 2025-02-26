@@ -1,4 +1,4 @@
-package exception;
+package com.Tc_traveler.IDSOD.exception;
 
 import com.Tc_traveler.IDSOD.dto.Result;
 import org.springframework.util.StringUtils;
