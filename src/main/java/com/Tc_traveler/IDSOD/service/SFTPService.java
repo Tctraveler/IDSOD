@@ -1,15 +1,24 @@
 package com.Tc_traveler.IDSOD.service;
 
+import com.jcraft.jsch.ChannelSftp;
+import com.jcraft.jsch.ChannelShell;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.SftpException;
 
+import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 
 public interface SFTPService {
 
-    void uploadFile(String localFilePath) throws JSchException, SftpException;
+    void firstUploadFile(String localFilePath, ChannelSftp channelSftp) throws JSchException, SftpException;
 
-    ArrayList<String> executeCommand(String command) throws JSchException, SftpException, IOException;
+    void executeCommand(String command, ChannelShell channelShell) throws JSchException, SftpException, IOException;
 
+    void deleteFile(String filename,ChannelSftp channelSftp) throws JSchException, SftpException;
+
+    void deleteFolder(String folder,ChannelSftp channelSftp) throws JSchException, SftpException;
+
+    void deleteAllFile(File folder);
+
+    void downloadFile(String originalFilePath, ChannelSftp channelSftp) throws SftpException;
 }

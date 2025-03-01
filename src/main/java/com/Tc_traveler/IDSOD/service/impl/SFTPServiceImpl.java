@@ -6,7 +6,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.*;
-import java.util.ArrayList;
 
 @Component
 public class SFTPServiceImpl implements SFTPService {
@@ -22,72 +21,62 @@ public class SFTPServiceImpl implements SFTPService {
     @Value("${sftp.password}")
     private String password;
 
-    @Value("${sftp.remote-dir}")
-    private String remoteDir;
+    @Value("${sftp.firstRemote-dir}")
+    private String firstRemoteDir;
+
+    @Value("${savePath}")
+    private String localSavePath;
 
     @Override
-    public void uploadFile(String localFilePath) throws JSchException, SftpException {
-        JSch jsch = new JSch();
-        Session session = null;
-        ChannelSftp channel = null;
-        try {
-            session = jsch.getSession(username,host,port);
-            session.setPassword(password);
-            session.setConfig("StrictHostKeyChecking", "no");
-            session.connect();
-            channel = (ChannelSftp) session.openChannel("sftp");
-            channel.connect();
-            channel.put(localFilePath, remoteDir);
-        } finally {
-            if (channel != null && channel.isConnected()) {
-                channel.disconnect();
+    public void firstUploadFile(String localFilePath, ChannelSftp channelSftp) throws SftpException {
+        channelSftp.put(localFilePath, firstRemoteDir);
+    }
+
+    @Override
+    public void executeCommand(String command,ChannelShell channelShell) throws IOException {
+        PrintWriter writer;
+        BufferedReader reader;
+        writer = new PrintWriter(channelShell.getOutputStream());
+        reader = new BufferedReader(new InputStreamReader(channelShell.getInputStream()));
+        writer.println(command);
+        writer.flush();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            System.out.println(line);
+        }
+        writer.close();
+        reader.close();
+    }
+
+    @Override
+    public void deleteFile(String filename,ChannelSftp channelSftp) throws SftpException {
+        channelSftp.rm(filename);
+    }
+
+    @Override
+    public void deleteFolder(String folder,ChannelSftp channelSftp) throws SftpException {
+        channelSftp.rmdir(folder);
+    }
+
+    @Override
+    public void deleteAllFile(File folder){
+        if(folder.exists()){
+            File[] files = folder.listFiles();
+            if(files != null){
+                for(File file : files){
+                    if(file.isDirectory()){
+                        deleteAllFile(file);
+                    }else {
+                        file.delete();
+                    }
+                }
             }
-            if (session != null && session.isConnected()) {
-                session.disconnect();
-            }
+            folder.delete();
         }
     }
 
     @Override
-    public ArrayList<String> executeCommand(String command) throws JSchException, IOException {
-        JSch jsch = new JSch();
-        Session session = null;
-        ChannelShell channel = null;
-        PrintWriter writer = null;
-        BufferedReader reader = null;
-        ArrayList<String> feedbacks = new ArrayList<>();
-        try {
-            session = jsch.getSession(username,host,port);
-            session.setPassword(password);
-            session.setConfig("StrictHostKeyChecking", "no");
-            session.connect();
-            channel = (ChannelShell) session.openChannel("shell");
-            channel.connect();
-            reader = new BufferedReader(new InputStreamReader(channel.getInputStream()));
-            writer = new PrintWriter(channel.getOutputStream());
-            writer.println(command);
-            writer.flush();
-            String line = null;
-            while ((line = reader.readLine()) != null) {
-                feedbacks.add(line);
-                System.out.println(line);
-            }
-        } finally {
-            if (writer != null && channel.isConnected()) {
-                writer.close();
-            }
-            if (reader != null && channel.isConnected()) {
-                reader.close();
-            }
-            if (channel != null && channel.isConnected()) {
-                channel.disconnect();
-            }
-            if (session != null && session.isConnected()) {
-                session.disconnect();
-            }
-        }
-        return feedbacks;
+    public void downloadFile(String originalFilePath, ChannelSftp channelSftp) throws SftpException {
+        channelSftp.get(originalFilePath,localSavePath);
     }
-
-
 }
