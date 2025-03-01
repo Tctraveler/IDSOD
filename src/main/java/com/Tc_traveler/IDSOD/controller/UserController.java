@@ -7,8 +7,6 @@ import com.Tc_traveler.IDSOD.service.SFTPService;
 import com.Tc_traveler.IDSOD.service.UserService;
 import com.Tc_traveler.IDSOD.utils.JwtUtil;
 import com.Tc_traveler.IDSOD.utils.Md5Util;
-import com.jcraft.jsch.JSchException;
-import com.jcraft.jsch.SftpException;
 import jakarta.validation.constraints.Pattern;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
@@ -16,7 +14,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
