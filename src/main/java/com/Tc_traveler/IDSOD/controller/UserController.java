@@ -8,10 +8,7 @@ import com.Tc_traveler.IDSOD.service.UserService;
 import com.Tc_traveler.IDSOD.utils.JwtUtil;
 import com.Tc_traveler.IDSOD.utils.Md5Util;
 import com.Tc_traveler.IDSOD.utils.ThreadLocalUtil;
-import com.jcraft.jsch.ChannelSftp;
-import com.jcraft.jsch.ChannelShell;
-import com.jcraft.jsch.JSch;
-import com.jcraft.jsch.Session;
+import com.jcraft.jsch.*;
 import jakarta.validation.constraints.Pattern;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,7 +19,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -51,6 +51,12 @@ public class UserController {
 
     @Value("${sftp.secondRemote-dir}")
     private String secondRemoteDir;
+
+    @Value("${sftp.thirdRemote-dir}")
+    private String thirdRemoteDir;
+
+    @Value("${sftp.fourthRemote-dir}")
+    private String fourthRemoteDir;
 
     // 注入UserService
     @Autowired
@@ -118,6 +124,9 @@ public class UserController {
 
     @PostMapping("/uploadPics")
     public Result uploadPics(@RequestParam(name = "file1") MultipartFile file1,@RequestParam(name = "file2") MultipartFile file2){
+        Map<String,Object> map = ThreadLocalUtil.get();
+        String username = (String) map.get("username");
+        Integer id = (Integer) map.get("id");
         if(file1==null||file2==null){
             return Result.error("请上传完整的双眼照片");
         }
@@ -135,46 +144,73 @@ public class UserController {
                 return Result.error("文件夹创建失败");
             }
         }
-        Map<String,Object> map = ThreadLocalUtil.get();
-        String username = (String) map.get("username");
         String filename1 = folder+"\\"+username+"leftEye.jpg", filename2 = folder+"\\"+username+"rightEye.jpg";
         JSch jsch = new JSch();
         Session session = null;
         ChannelSftp channelSftp = null;
-        ChannelShell channelShell = null;
         try {
             session = jsch.getSession(name,host,port);
             session.setPassword(password);
             session.setConfig("StrictHostKeyChecking", "no");
             session.connect();
             channelSftp = (ChannelSftp) session.openChannel("sftp");
-            channelShell = (ChannelShell) session.openChannel("shell");
             channelSftp.connect();
             file1.transferTo(new File(filename1));
             file2.transferTo(new File(filename2));
-            sftpService.firstUploadFile(filename1,channelSftp);
+            sftpService.firstUploadFile(filename1,channelSftp);//上传需要亮度增强文件
             sftpService.firstUploadFile(filename2,channelSftp);
-            sftpService.deleteAllFile(folder);
+            sftpService.deleteAllFile(folder);//删除本地图片
             if(!folder.exists()){
                 if(!folder.mkdirs()){
                     return Result.error("文件夹创建失败");
                 }
             }
-            sftpService.executeCommand("python /root/autodl-tmp/CSSE/CSEC-main/src/test.py checkpoint_path=/root/autodl-tmp/CSSE/CSEC-main/pretained/csec.ckpt",channelShell);
-            sftpService.deleteFile(firstRemoteDir+"/"+username+"leftEye.jpg",channelSftp);
+            sftpService.executeCommand("python /root/autodl-tmp/CSSE/CSEC-main/src/test.py checkpoint_path=/root/autodl-tmp/CSSE/CSEC-main/pretained/csec.ckpt");//执行亮度增强命令
+            sftpService.deleteFile(firstRemoteDir+"/"+username+"leftEye.jpg",channelSftp);//删除已经亮度增强前的图片
             sftpService.deleteFile(firstRemoteDir+"/"+username+"rightEye.jpg",channelSftp);
-            sftpService.downloadFile(secondRemoteDir+"/"+username+"leftEye.jpg",channelSftp);
-            sftpService.downloadFile(secondRemoteDir+"/"+username+"rightEye.jpg",channelSftp);
-            sftpService.deleteFile(secondRemoteDir,channelSftp);
-        }catch (Exception e){
+            sftpService.downloadFile(secondRemoteDir+"/csecnet_pretained_csec.ckpt@lcdp_data.test"+"/"+username+"leftEye.jpg",channelSftp);//下载亮度增强后的文件
+            sftpService.downloadFile(secondRemoteDir+"/csecnet_pretained_csec.ckpt@lcdp_data.test"+"/"+username+"rightEye.jpg",channelSftp);
+            sftpService.deleteFolder(secondRemoteDir);//删除远程多余文件
+//            sftpService.secondUploadFile(filename1,channelSftp);//上传需要预测的文件
+//            sftpService.secondUploadFile(filename2,channelSftp);
+//            sftpService.deleteAllFile(folder);//删除本地图片
+//            if(!folder.exists()){
+//                if(!folder.mkdirs()){
+//                    return Result.error("文件夹创建失败");
+//                }
+//            }
+//            sftpService.executeCommand("python /root/autodl-tmp/res101_MultiScaleFusion/predict.py --left "+thirdRemoteDir+"/"+username+"leftEye.jpg"+" --right "+thirdRemoteDir+"/"+username+"rightEye.jpg");//执行预测命令
+//            sftpService.deleteFile(thirdRemoteDir+"/"+username+"leftEye.jpg",channelSftp);//删除已经预测前的文件
+//            sftpService.deleteFile(thirdRemoteDir+"/"+username+"rightEye.jpg",channelSftp);
+//            sftpService.downloadFile(fourthRemoteDir+"/result.txt",channelSftp);//下载预测结果
+//            sftpService.deleteFile(fourthRemoteDir+"/result.txt",channelSftp);//删除远程预测结果
+//            BufferedReader reader = new BufferedReader(new FileReader(folder+"\\result.txt"));
+//            String line = null;
+//            StringBuilder result = new StringBuilder();
+//            while ((line = reader.readLine()) != null) {
+//                if(line.startsWith("- ")){
+//                    result.append(line.substring(2)).append(" ");
+//                }
+//            }
+//            userService.addConsequence(id,result);
+//            sftpService.deleteAllFile(folder);
+//            if(!folder.exists()){
+//                if(!folder.mkdirs()){
+//                    return Result.error("文件夹创建失败");
+//                }
+//            }
+        }catch (SftpException | JSchException e){
             e.printStackTrace();
-            return Result.error("文件io异常");
+            return Result.error("远程文件io异常");
+        }catch (IOException e){
+            e.printStackTrace();
+            return Result.error("本地文件io异常");
+        }catch (InterruptedException e){
+            e.printStackTrace();
+            return Result.error("线程异常");
         }finally {
             if (channelSftp != null && channelSftp.isConnected()) {
                 channelSftp.disconnect();
-            }
-            if (channelShell != null && channelShell.isConnected()) {
-                channelShell.disconnect();
             }
             if (session != null && session.isConnected()) {
                 session.disconnect();

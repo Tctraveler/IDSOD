@@ -16,13 +16,16 @@ public class SFTPServiceImpl implements SFTPService {
     private int port;
 
     @Value("${sftp.username}")
-    private String username;
+    private String name;
 
     @Value("${sftp.password}")
     private String password;
 
     @Value("${sftp.firstRemote-dir}")
     private String firstRemoteDir;
+
+    @Value("${sftp.thirdRemote-dir}")
+    private String thirdRemoteDir;
 
     @Value("${savePath}")
     private String localSavePath;
@@ -33,19 +36,49 @@ public class SFTPServiceImpl implements SFTPService {
     }
 
     @Override
-    public void executeCommand(String command,ChannelShell channelShell) throws IOException {
-        PrintWriter writer;
-        BufferedReader reader;
-        writer = new PrintWriter(channelShell.getOutputStream());
-        reader = new BufferedReader(new InputStreamReader(channelShell.getInputStream()));
-        writer.println(command);
-        writer.flush();
-        String line;
-        while ((line = reader.readLine()) != null) {
-            System.out.println(line);
+    public void secondUploadFile(String localFilePath, ChannelSftp channelSftp) throws SftpException {
+        channelSftp.put(localFilePath, thirdRemoteDir);
+    }
+
+    @Override
+    public void executeCommand(String command) throws IOException, JSchException {
+        JSch jsch = new JSch();
+        Session session = null;
+        ChannelShell channelShell = null;
+        PrintWriter writer = null;
+        BufferedReader reader = null;
+        try {
+            session = jsch.getSession(name, host, port);
+            session.setPassword(password);
+            session.setConfig("StrictHostKeyChecking", "no");
+            session.connect();
+            channelShell = (ChannelShell) session.openChannel("shell");
+            channelShell.connect();
+            writer = new PrintWriter(channelShell.getOutputStream());
+            reader = new BufferedReader(new InputStreamReader(channelShell.getInputStream()));
+            writer.println(command);
+            writer.flush();
+            String line = null;
+            while ((line = reader.readLine()) != null) {
+                System.out.println(line);
+                if(line.equals("done")){
+                    break;
+                }
+            }
+        } finally {
+            if (writer != null) {
+                writer.close();
+            }
+            if (reader != null) {
+                reader.close();
+            }
+            if (channelShell != null && channelShell.isConnected()) {
+                channelShell.disconnect();
+            }
+            if (session != null && session.isConnected()) {
+                session.disconnect();
+            }
         }
-        writer.close();
-        reader.close();
     }
 
     @Override
@@ -54,8 +87,34 @@ public class SFTPServiceImpl implements SFTPService {
     }
 
     @Override
-    public void deleteFolder(String folder,ChannelSftp channelSftp) throws SftpException {
-        channelSftp.rmdir(folder);
+    public void deleteFolder(String folder) throws JSchException, InterruptedException {
+        JSch jsch = new JSch();
+        Session session = null;
+        ChannelExec channelExec = null;
+        try {
+            session = jsch.getSession(name, host, port);
+            session.setPassword(password);
+            session.setConfig("StrictHostKeyChecking", "no");
+            session.connect();
+            channelExec = (ChannelExec) session.openChannel("exec");
+            channelExec.setCommand("rm -rf "+folder);
+            channelExec.connect();
+            while (!channelExec.isClosed()) {
+                Thread.sleep(100);
+            }
+            // 检查退出状态码（0表示成功）
+            int exitStatus = channelExec.getExitStatus();
+            if (exitStatus != 0) {
+                throw new RuntimeException("删除失败，错误码: " + exitStatus);
+            }
+        } finally {
+            if (channelExec != null && channelExec.isConnected()) {
+                channelExec.disconnect();
+            }
+            if (session != null && session.isConnected()) {
+                session.disconnect();
+            }
+        }
     }
 
     @Override
