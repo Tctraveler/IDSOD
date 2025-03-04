@@ -23,4 +23,10 @@ public class UserServiceImpl implements UserService {
         String md5Pwd = Md5Util.getMD5String(firstPassword);
         userMapper.register(username,md5Pwd);
     }
+
+    @Override
+    public void addConsequence(Integer id, StringBuilder result) {
+        String consequence = result.toString();
+        userMapper.addConsequence(id,consequence);
+    }
 }
